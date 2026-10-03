@@ -17,7 +17,7 @@ function firstEmoji(text) {
 // ---------- cards ----------
 function cardFor(m) {
   const a = document.createElement('a');
-  a.className = 'card';
+  a.className = 'card dyn';
   a.href = 'matiere.html?id=' + encodeURIComponent(m.id);
   const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = m.emoji;
   const h3 = document.createElement('h3');   h3.textContent = m.titre;
@@ -96,13 +96,35 @@ function openModal(sem) {
 }
 
 // ---------- init ----------
-document.addEventListener('DOMContentLoaded', async () => {
-  const { data, error } = await sb.from('matieres').select('*').order('created_at');
-  if (error) console.error(error);
+// 1) the "Ajouter" cards appear instantly
+// 2) subjects saved from the last visit appear instantly (cache)
+// 3) fresh data comes from Supabase and replaces them
+const CACHE_KEY = 'matieres-cache-v1';
+
+function paint(list) {
+  document.querySelectorAll('.card.dyn').forEach(c => c.remove());
   [1, 2].forEach(sem => {
     const grid = document.querySelector('.grid.s' + sem);
     if (!grid) return;
-    (data || []).filter(m => m.semestre === sem).forEach(m => grid.appendChild(cardFor(m)));
-    grid.appendChild(addCard(sem));
+    const add = grid.querySelector('.add-card');
+    list.filter(m => m.semestre === sem).forEach(m => grid.insertBefore(cardFor(m), add));
   });
-});
+}
+
+function init() {
+  [1, 2].forEach(sem => {
+    const grid = document.querySelector('.grid.s' + sem);
+    if (grid) grid.appendChild(addCard(sem));
+  });
+
+  try { paint(JSON.parse(localStorage.getItem(CACHE_KEY)) || []); } catch (e) {}
+
+  sb.from('matieres').select('*').order('created_at').then(({ data, error }) => {
+    if (error) return console.error(error);
+    paint(data || []);
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(data || [])); } catch (e) {}
+  });
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
