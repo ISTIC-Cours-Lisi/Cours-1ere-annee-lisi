@@ -232,6 +232,7 @@ function openModal(section) {
 
       overlay.remove();
       loadItems();
+      alert('✅ Envoyé ! Ton ajout sera visible après validation par l\'administrateur.');
     } catch (err) {
       msg.textContent = '❌ ' + (err.message || err);
       btn.disabled = false;

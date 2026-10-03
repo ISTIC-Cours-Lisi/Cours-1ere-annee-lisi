@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Validation · Administration</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#e7ebf1; --panel:#f3f5f9; --paper:#fff; --ink:#18212f; --muted:#5b697c; --line:#d2d9e3;
+  --blue:#1d3f8a; --ok:#1c7a4b; --ok-d:#145f3a; --no:#b3261e;
+  --gold:#c9a227; --gold-100:#f3e6bd; --mint:#d6f3e8; --sky:#ccdaf5;
+  --font:'Segoe UI Variable','Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45}
+[hidden]{display:none!important}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+
+/* ---------- login ---------- */
+.login{min-height:100%;display:grid;place-items:center;padding:24px}
+.login form{width:100%;max-width:380px;background:var(--paper);padding:34px 32px 30px;border-left:6px solid var(--gold);
+  box-shadow:0 18px 50px rgba(24,33,47,.14)}
+.login img{height:46px;border-radius:6px;display:block;margin-bottom:22px}
+.login h1{margin:0 0 4px;font-size:24px;letter-spacing:-.01em}
+.login p.sub{margin:0 0 22px;color:var(--muted);font-size:14px}
+.login label{display:block;font-weight:600;font-size:13px;margin:0 0 5px}
+.login input{width:100%;padding:11px 12px;margin-bottom:14px;border:1px solid var(--line);border-radius:6px;font:inherit;background:#fbfcfd}
+.login .go{width:100%;padding:12px;border:0;border-radius:6px;background:var(--ink);color:#fff;font-weight:700}
+.login .go:disabled{opacity:.6;cursor:wait}
+.login .err{min-height:20px;margin:12px 0 0;color:var(--no);font-size:14px}
+
+/* ---------- top bar ---------- */
+.bar{height:64px;display:flex;align-items:center;gap:16px;padding:0 24px;background:var(--paper);border-bottom:1px solid var(--line)}
+.bar img{height:34px;border-radius:5px}
+.bar h1{margin:0;font-size:17px;letter-spacing:-.005em}
+.bar .spacer{flex:1}
+.bar .count{display:flex;align-items:baseline;gap:8px;color:var(--muted);font-size:14px}
+.bar .count b{font-size:28px;font-weight:300;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+.ghost{background:none;border:1px solid var(--line);border-radius:6px;padding:7px 12px;color:var(--ink)}
+.ghost:hover{background:var(--panel)}
+
+/* ---------- desk ---------- */
+.desk{display:grid;grid-template-columns:380px 1fr;height:calc(100% - 64px)}
+.queue{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;gap:2px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:none;padding:8px 6px;border-radius:6px;color:var(--muted);font-weight:600;font-size:14px}
+.tabs button[aria-selected=true]{background:var(--paper);color:var(--ink);box-shadow:0 1px 0 var(--line)}
+.tabs span{font-weight:400;margin-left:4px;font-variant-numeric:tabular-nums}
+.list{overflow-y:auto;flex:1}
+.row{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:14px 16px;border:0;border-bottom:1px solid var(--line);
+  background:none;border-left:4px solid transparent;color:inherit}
+.row:hover{background:#fafbfd}
+.row[aria-current=true]{background:var(--paper);border-left-color:var(--blue)}
+.tile{flex:none;width:44px;height:44px;border-radius:9px;display:grid;place-items:center;font-size:22px}
+.row .t{min-width:0;flex:1}
+.row .t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row time{flex:none;color:var(--muted);font-size:12px}
+
+/* ---------- detail ---------- */
+.detail{overflow-y:auto;padding:40px 44px 60px}
+.detail .in{max-width:640px}
+.kind{margin:0 0 6px;color:var(--muted);font-size:14px}
+.detail h2{margin:0 0 28px;font-size:32px;line-height:1.15;letter-spacing:-.015em;word-break:break-word}
+.detail h3{margin:0 0 12px;font-size:14px;color:var(--muted);font-weight:600}
+
+/* live preview = how it will look on the site */
+.preview{width:270px;background:#fff;border-radius:14px;padding:20px;box-shadow:0 6px 18px rgba(11,31,69,.18);margin-bottom:30px}
+.preview .ic{height:110px;border-radius:10px;margin-bottom:14px;display:grid;place-items:center;font-size:36px}
+.preview h4{margin:0 0 8px;color:#0b1f45;font-size:17px;word-break:break-word}
+.preview p{margin:0;font-size:14px;color:#45526e;min-height:1.4em}
+
+dl{margin:0 0 30px;border-top:1px solid var(--line)}
+dl div{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+dt{color:var(--muted);font-size:14px}
+dd{margin:0;word-break:break-all}
+dd a{color:var(--blue);font-weight:600}
+
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{border:0;border-radius:8px;padding:14px 26px;font-weight:700;font-size:16px}
+.btn.ok{background:var(--ok);color:#fff}
+.btn.ok:hover{background:var(--ok-d)}
+.btn.no{background:#fff;color:var(--no);border:2px solid var(--no)}
+.btn.no:hover{background:#fdf1f0}
+.btn.no.armed{background:var(--no);color:#fff}
+.btn:disabled{opacity:.55;cursor:wait}
+.keys{margin:16px 0 0;color:var(--muted);font-size:13px}
+kbd{font:inherit;font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 6px;background:#fff;color:var(--ink)}
+
+.empty{height:100%;display:grid;place-content:center;text-align:center;color:var(--muted);padding:40px}
+.empty .big{font-size:54px;margin-bottom:8px}
+.empty b{display:block;color:var(--ink);font-size:20px;margin-bottom:4px}
+.none{padding:30px 20px;color:var(--muted);text-align:center;font-size:14px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:8px;
+  font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:50}
+.toast.bad{background:var(--no)}
+
+@media (max-width:860px){
+  .desk{grid-template-columns:1fr;height:auto}
+  .queue{max-height:46vh;border-right:0;border-bottom:1px solid var(--line)}
+  .detail{padding:24px 20px 60px}
+  .detail h2{font-size:26px}
+  dl div{grid-template-columns:1fr;gap:2px}
+  .bar{padding:0 14px}.bar h1{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section class="login" id="login">
+  <form id="login-form">
+    <img src="logo_ istik.jpg" alt="" onerror="this.remove()">
+    <h1>Espace administrateur</h1>
+    <p class="sub">Validation des matières, fichiers et liens ajoutés par les étudiants.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="pass">Mot de passe</label>
+    <input id="pass" type="password" autocomplete="current-password" required>
+    <button class="go" id="btn-login" type="submit">Se connecter</button>
+    <p class="err" id="login-err" role="alert"></p>
+  </form>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="app" hidden>
+  <header class="bar">
+    <img src="logo_ istik.jpg" alt="" onerror="this.remove()">
+    <h1>Validation</h1>
+    <span class="spacer"></span>
+    <span class="count"><b id="total">0</b> en attente</span>
+    <button class="ghost" id="btn-refresh" type="button">Actualiser</button>
+    <button class="ghost" id="btn-logout" type="button">Se déconnecter</button>
+  </header>
+  <div class="desk">
+    <aside class="queue">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="list" id="list"></div>
+    </aside>
+    <main class="detail" id="detail"></main>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const SUPABASE_URL = 'https://poolqfoughnrptasoidz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ENiMDd9yp4PjAlfU9xte_A__Tjd4Ui_';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);   // keeps the admin session
+
+const $ = id => document.getElementById(id);
+const SECTION = { cours: 'Cours / TD / Examen', tp: 'TP', video: 'Vidéo YouTube' };
+const SECTION_BG = { cours: 'var(--gold-100)', tp: 'var(--sky)', video: 'var(--mint)' };
+const SEM_BG = { 1: 'var(--gold-100)', 2: 'var(--mint)' };
+const KIND = { pdf: 'PDF', zip: 'Dossier .zip', link: 'Lien en ligne', youtube: 'Lien YouTube' };
+const KIND_ICON = { pdf: '📄', zip: '📦', link: '🔗', youtube: '▶️' };
+
+const S = { all: [], names: {}, tab: 'all', sel: null, armed: null, busy: false };
+let armTimer = null, toastTimer = null;
+
+/* ---------- helpers ---------- */
+function h(tag, props, ...kids){
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  kids.flat().forEach(c => e.append(c instanceof Node ? c : document.createTextNode(c ?? '')));
+  return e;
+}
+const safeUrl = u => { try { return /^https?:$/.test(new URL(u).protocol); } catch { return false; } };
+const when = d => new Date(d).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+function toast(text, bad){
+  const t = $('toast');
+  t.textContent = text; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3200);
+}
+
+/* ---------- data ---------- */
+async function load(){
+  const [m, it, all] = await Promise.all([
+    db.from('matieres').select('*').eq('approved', false).order('created_at'),
+    db.from('items').select('*').eq('approved', false).order('created_at'),
+    db.from('matieres').select('id,titre,emoji')
+  ]);
+  if (m.error || it.error) toast('Erreur : ' + (m.error || it.error).message, true);
+  S.names = {};
+  (all.data || []).forEach(x => S.names['matiere-' + x.id] = x.emoji + ' ' + x.titre);
+  S.all = [
+    ...(m.data || []).map(r => ({ t: 'matiere', table: 'matieres', id: r.id, at: r.created_at, r })),
+    ...(it.data || []).map(r => ({ t: 'item', table: 'items', id: r.id, at: r.created_at, r }))
+  ].sort((a, b) => new Date(a.at) - new Date(b.at));
+  S.sel = null; S.armed = null;
+  render();
+}
+
+const visible = () => S.all.filter(e => S.tab === 'all' || e.t === S.tab);
+const selected = () => S.all.find(e => e.id === S.sel);
+
+/* ---------- render ---------- */
+function render(){
+  const vis = visible();
+  if (!vis.find(e => e.id === S.sel)) S.sel = vis.length ? vis[0].id : null;
+
+  $('total').textContent = S.all.length;
+
+  const count = t => S.all.filter(e => t === 'all' || e.t === t).length;
+  const tabs = $('tabs'); tabs.innerHTML = '';
+  [['all', 'Tout'], ['matiere', 'Matières'], ['item', 'Fichiers et liens']].forEach(([k, label]) =>
+    tabs.append(h('button', { role: 'tab', 'aria-selected': S.tab === k, onclick: () => { S.tab = k; render(); } },
+      label, h('span', {}, count(k)))));
+
+  const list = $('list'); list.innerHTML = '';
+  if (!vis.length) list.append(h('div', { class: 'none' }, 'Rien à valider ici.'));
+  vis.forEach(e => list.append(rowFor(e)));
+
+  renderDetail();
+}
+
+function rowFor(e){
+  const r = e.r, isM = e.t === 'matiere';
+  const tile = h('div', { class: 'tile', style: 'background:' + (isM ? SEM_BG[r.semestre] : SECTION_BG[r.section]) },
+    isM ? r.emoji : KIND_ICON[r.kind]);
+  const sub = isM ? 'Matière · Semestre ' + r.semestre : (S.names[r.page] || r.page) + ' · ' + (SECTION[r.section] || r.section);
+  return h('button', { class: 'row', type: 'button', 'aria-current': e.id === S.sel,
+      onclick: () => { S.sel = e.id; S.armed = null; render(); if (innerWidth < 860) $('detail').scrollIntoView({ behavior: 'smooth' }); } },
+    tile, h('div', { class: 't' }, h('b', {}, isM ? r.titre : r.title), h('small', {}, sub)), h('time', {}, when(e.at)));
+}
+
+function renderDetail(){
+  const d = $('detail'); d.innerHTML = '';
+  const e = selected();
+  if (!e) {
+    d.append(h('div', { class: 'empty' }, h('div', {}, h('div', { class: 'big' }, '✅'),
+      h('b', {}, 'Tout est validé'), 'Les nouveaux ajouts apparaîtront ici.')));
+    return;
+  }
+  const r = e.r, isM = e.t === 'matiere';
+  const armed = S.armed === e.id;
+
+  const preview = h('div', { class: 'preview' },
+    h('div', { class: 'ic', style: 'background:' + (isM ? SEM_BG[r.semestre] : SECTION_BG[r.section]) }, isM ? r.emoji : KIND_ICON[r.kind]),
+    h('h4', {}, isM ? r.titre : r.title),
+    h('p', {}, isM ? (r.description || '') : (r.tooltip || '')));
+
+  const facts = isM
+    ? [['Semestre', 'Semestre ' + r.semestre], ['TP', r.has_tp ? 'Oui — la page aura un bloc TP' : 'Non'],
+       ['Description', r.description || '(vide)'], ['Envoyé le', when(e.at)]]
+    : [['Type', KIND[r.kind] || r.kind], ['Section', SECTION[r.section] || r.section],
+       ['Matière', S.names[r.page] || r.page], ['Description', r.tooltip || '(vide)'],
+       ['Envoyé le', when(e.at)],
+       ['Lien', safeUrl(r.url) ? h('a', { href: r.url, target: '_blank', rel: 'noopener noreferrer' }, r.url + '  ↗') : r.url]];
+
+  d.append(h('div', { class: 'in' },
+    h('p', { class: 'kind' }, isM ? 'Nouvelle matière' : 'Nouveau ' + (r.kind === 'youtube' ? 'lien vidéo' : r.kind === 'link' ? 'lien' : 'fichier')),
+    h('h2', {}, isM ? r.titre : r.title),
+    h('h3', {}, 'Aperçu sur le site'),
+    preview,
+    h('dl', {}, facts.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))),
+    h('div', { class: 'actions' },
+      h('button', { class: 'btn ok', type: 'button', disabled: S.busy, onclick: () => approve(e) }, '✔ Accepter'),
+      h('button', { class: 'btn no' + (armed ? ' armed' : ''), type: 'button', disabled: S.busy, onclick: () => reject(e) },
+        armed ? 'Confirmer la suppression' : '✖ Refuser')),
+    h('p', { class: 'keys' }, h('kbd', {}, 'A'), ' accepter   ', h('kbd', {}, 'R'), ' refuser (2 fois)   ',
+      h('kbd', {}, '↑'), ' ', h('kbd', {}, '↓'), ' changer')));
+}
+
+/* ---------- actions ---------- */
+function done(e, msg){
+  S.all = S.all.filter(x => x.id !== e.id);
+  const vis = visible(); const i = vis.findIndex(x => x.id === e.id);
+  S.sel = null; S.armed = null; S.busy = false;
+  render(); toast(msg);
+}
+
+async function approve(e){
+  if (S.busy) return; S.busy = true; renderDetail();
+  const { error } = await db.from(e.table).update({ approved: true }).eq('id', e.id);
+  if (error) { S.busy = false; renderDetail(); return toast('Erreur : ' + error.message, true); }
+  done(e, 'Accepté — visible par tous');
+}
+
+async function reject(e){
+  if (S.busy) return;
+  if (S.armed !== e.id) {                       // first click: ask to confirm
+    S.armed = e.id; renderDetail();
+    clearTimeout(armTimer); armTimer = setTimeout(() => { S.armed = null; renderDetail(); }, 4000);
+    return;
+  }
+  clearTimeout(armTimer); S.busy = true; renderDetail();
+  const r = e.r;
+  if (e.t === 'item' && r.url && r.url.includes('/object/public/files/')) {
+    const path = decodeURIComponent(r.url.split('/object/public/files/')[1]);
+    await db.storage.from('files').remove([path]);
+  }
+  const { error } = await db.from(e.table).delete().eq('id', e.id);
+  if (error) { S.busy = false; renderDetail(); return toast('Erreur : ' + error.message, true); }
+  done(e, 'Refusé et supprimé');
+}
+
+document.addEventListener('keydown', ev => {
+  if ($('app').hidden || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || ev.ctrlKey || ev.metaKey) return;
+  const e = selected(), vis = visible(), i = vis.findIndex(x => x.id === S.sel);
+  const k = ev.key.toLowerCase();
+  if (k === 'a' && e) approve(e);
+  else if (k === 'r' && e) reject(e);
+  else if ((k === 'arrowdown' || k === 'j') && i < vis.length - 1) { ev.preventDefault(); S.sel = vis[i + 1].id; S.armed = null; render(); }
+  else if ((k === 'arrowup' || k === 'k') && i > 0) { ev.preventDefault(); S.sel = vis[i - 1].id; S.armed = null; render(); }
+});
+
+/* ---------- login / session ---------- */
+function show(logged){ $('login').hidden = logged; $('app').hidden = !logged; }
+
+$('login-form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const btn = $('btn-login'), err = $('login-err');
+  err.textContent = ''; btn.disabled = true;
+  const { error } = await db.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  btn.disabled = false;
+  if (error) { err.textContent = 'Connexion refusée : ' + error.message; return; }
+  show(true); load();
+});
+$('btn-logout').onclick = async () => { await db.auth.signOut(); show(false); };
+$('btn-refresh').onclick = load;
+
+(async () => {
+  const { data } = await db.auth.getSession();
+  show(!!data.session);
+  if (data.session) load();
+})();
+</script>
+</body>
+</html>

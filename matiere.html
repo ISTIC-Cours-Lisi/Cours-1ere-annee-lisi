@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matière</title>
+<link rel="stylesheet" href="sitecour.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="scripte.js"></script>
+</head>
+<body>
+<script>
+  // Set BEFORE scripte.js runs (it runs on DOMContentLoaded and reads data-page).
+  // Each subject gets its own key, so its files/links are separate.
+  const subjectId = new URLSearchParams(location.search).get('id');
+  if (!subjectId) location.replace('page.html');
+  document.body.dataset.page = 'matiere-' + subjectId;
+</script>
+
+<header class="site-header">
+  <div class="logo">
+    <img src="logo_ istik.jpg" alt="Logo">
+    <strong id="page-title">…</strong>
+  </div>
+  <nav><a href="page.html">Home</a></nav>
+</header>
+
+<div class="hero"></div>
+
+<main class="categories">
+  <h2>Cours &amp; TD &amp; Examens</h2>
+  <div class="grid s1" id="grid-cours"></div>
+
+  <section id="tp-section" hidden>
+    <h2>TP</h2>
+    <div class="grid s3" id="grid-tp"></div>
+  </section>
+
+  <h2>Video Youtube pour comprendre les cours</h2>
+  <div class="grid s2" id="grid-video"></div>
+</main>
+
+<script>
+  // `db` comes from scripte.js (same Supabase connection)
+  (async () => {
+    const { data: m, error } = await db.from('matieres').select('*').eq('id', subjectId).single();
+    if (error || !m) { document.getElementById('page-title').textContent = 'Matière introuvable'; return; }
+    document.title = m.titre;
+    document.getElementById('page-title').textContent = m.emoji + ' ' + m.titre;
+    const tp = document.getElementById('tp-section');
+    if (m.has_tp) tp.hidden = false; else tp.remove();   // like archi (with TP) or like algebre (without)
+  })();
+</script>
+</body>
+</html>
