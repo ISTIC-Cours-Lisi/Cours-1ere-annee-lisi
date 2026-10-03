@@ -1,9 +1,22 @@
 // For page.html ONLY (do not load scripte.js on this page)
 const SUPABASE_URL = 'https://poolqfoughnrptasoidz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_ENiMDd9yp4PjAlfU9xte_A__Tjd4Ui_';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-});
+// Supabase is loaded in the background, so the page never waits for it
+let sbPromise = null;
+function getSb() {
+  if (!sbPromise) sbPromise = new Promise((resolve, reject) => {
+    const make = () => resolve(window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    }));
+    if (window.supabase) return make();
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    sc.onload = make;
+    sc.onerror = () => reject(new Error('Connexion impossible. Réessaie.'));
+    document.head.appendChild(sc);
+  });
+  return sbPromise;
+}
 
 const EMOJI_RE = /\p{Extended_Pictographic}|\p{Emoji_Presentation}|\u20E3/u;
 
@@ -82,8 +95,12 @@ function openModal(sem) {
     if (!tp)    { msg.textContent = 'Coche Oui ou Non pour le TP.'; return; }
 
     btn.disabled = true;
-    const { error } = await sb.from('matieres')
-      .insert({ titre, description, emoji, semestre: sem, has_tp: tp.value === '1' });
+    let error;
+    try {
+      const sb = await getSb();
+      ({ error } = await sb.from('matieres')
+        .insert({ titre, description, emoji, semestre: sem, has_tp: tp.value === '1' }));
+    } catch (e) { error = e; }
     btn.disabled = false;
     if (error) { msg.textContent = '❌ ' + error.message; return; }
 
@@ -119,11 +136,11 @@ function init() {
 
   try { paint(JSON.parse(localStorage.getItem(CACHE_KEY)) || []); } catch (e) {}
 
-  sb.from('matieres').select('*').order('created_at').then(({ data, error }) => {
+  getSb().then(sb => sb.from('matieres').select('*').order('created_at')).then(({ data, error }) => {
     if (error) return console.error(error);
     paint(data || []);
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(data || [])); } catch (e) {}
-  });
+  }).catch(console.error);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
